@@ -522,9 +522,20 @@ def main():
     print()
 
     if phone_mode:
+        url = f"https://{local_ip}:3000/camera"
         print(f"  📱 PHONE CAMERA MODE")
         print(f"  Your PC IP: {local_ip}")
-        print(f"  On your phone, open: http://{local_ip}:3000/camera")
+        print(f"  Scan this QR code with your phone to connect:\n")
+        
+        try:
+            import qrcode
+            qr = qrcode.QRCode(border=2)
+            qr.add_data(url)
+            qr.print_ascii(invert=True)
+        except ImportError:
+            print("  (Run 'pip install qrcode' to see the QR code here)")
+            
+        print(f"\n  Or open manually: {url}")
         print(f"  Enter IP: {local_ip}")
     else:
         print(f"  📷 WEBCAM MODE  (use --phone for phone camera)")

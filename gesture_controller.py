@@ -28,8 +28,13 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from pynput.keyboard import Controller as KeyboardCtrl, Key
-import websockets
-from websockets.asyncio.server import serve
+try:
+    from websockets.asyncio.server import serve
+except ImportError:
+    try:
+        from websockets.server import serve
+    except ImportError:
+        from websockets import serve
 
 
 # ─── Gesture Enum ────────────────────────────────────────────────────────────
@@ -311,7 +316,7 @@ class GestureWebSocketServer:
         self.phone_frame = None        # Latest frame from phone camera
         self._phone_frame_lock = threading.Lock()
 
-    async def _handler(self, websocket):
+    async def _handler(self, websocket, *args):
         """Handle a WebSocket connection."""
         self.dashboard_clients.add(websocket)
         client_type = "dashboard"

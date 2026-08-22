@@ -24,6 +24,7 @@ export default function Dashboard() {
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
   const cameraImgRef = useRef<HTMLImageElement | null>(null);
   const pipImgRef = useRef<HTMLImageElement | null>(null);
+  const hasReceivedFirstFrameRef = useRef(false);
   const [hasReceivedFirstFrame, setHasReceivedFirstFrame] = useState(false);
 
   const [connected, setConnected] = useState(false);
@@ -42,34 +43,36 @@ export default function Dashboard() {
 
   // ── WebSocket Connection with Direct DOM Streaming ──
   const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
 
-    const ws = new WebSocket("ws://localhost:8765");
+    const host = typeof window !== "undefined" && window.location.hostname ? window.location.hostname : "localhost";
+    const ws = new WebSocket(`ws://${host}:8765`);
 
     ws.onopen = () => {
       setConnected(true);
-      console.log("[WS] High-performance connection established");
+      console.log(`[WS] Connected to ws://${host}:8765`);
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === "frame") {
-          // Zero-cost DOM update (bypasses React reconciliation for 60fps smoothness)
           if (cameraImgRef.current) {
             cameraImgRef.current.src = data.image;
           }
           if (pipImgRef.current) {
             pipImgRef.current.src = data.image;
           }
-          if (!hasReceivedFirstFrame) {
+          if (!hasReceivedFirstFrameRef.current) {
+            hasReceivedFirstFrameRef.current = true;
             setHasReceivedFirstFrame(true);
           }
         } else if (data.type === "gesture") {
           const gestureData = data as GestureEvent;
           setCurrentGesture(gestureData);
 
-          // Add to history only if actionable
           if (gestureData.gesture !== "none") {
             setHistory((prev) => {
               const entry: HistoryEntry = {
@@ -92,16 +95,18 @@ export default function Dashboard() {
 
     ws.onclose = () => {
       setConnected(false);
+      hasReceivedFirstFrameRef.current = false;
       setHasReceivedFirstFrame(false);
-      reconnectTimerRef.current = setTimeout(connectWebSocket, 3000);
+      reconnectTimerRef.current = setTimeout(connectWebSocket, 2000);
     };
 
-    ws.onerror = () => {
+    ws.onerror = (err) => {
+      console.error("[WS] Connection error:", err);
       ws.close();
     };
 
     wsRef.current = ws;
-  }, [hasReceivedFirstFrame]);
+  }, []);
 
   // ── Initialize ──
   useEffect(() => {

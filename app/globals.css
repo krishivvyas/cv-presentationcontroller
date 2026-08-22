@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #090a0f;
+  --foreground: #f3f4f6;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: Arial, Helvetica, sans-serif;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Glassmorphism styling */
+.glass-panel {
+  background: rgba(18, 20, 29, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+}
+
+.glass-panel-interactive {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-panel-interactive:hover {
+  background: rgba(30, 35, 52, 0.85);
+  border-color: rgba(0, 243, 255, 0.4);
+  box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+}
+
+/* Neon glow utility classes */
+.neon-border-blue {
+  box-shadow: 0 0 12px rgba(0, 243, 255, 0.6);
+  border-color: #00f3ff !important;
+}
+
+.neon-text-glow {
+  text-shadow: 0 0 10px rgba(0, 243, 255, 0.8), 0 0 20px rgba(0, 243, 255, 0.4);
+}
+
+/* Custom scrollbar for gallery modal */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 17, 26, 0.8);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 243, 255, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 243, 255, 0.6);
+}
+
+/* ── GestureSlide Animations ── */
+
+/* Pulse effect when a gesture is detected */
+@keyframes gesturePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 243, 255, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(0, 243, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 243, 255, 0);
+  }
+}
+
+.gesture-pulse {
+  animation: gesturePulse 0.6s ease-out;
+}
+
+/* Fade-in for new history entries */
+@keyframes historyEntryEnter {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.history-entry-enter {
+  animation: historyEntryEnter 0.3s ease-out;
+}
+
+/* Slider thumb styling */
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #00f3ff;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #00f3ff;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(0, 243, 255, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}

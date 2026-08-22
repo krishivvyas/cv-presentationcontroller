@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import GestureIndicator from "./GestureIndicator";
 import GestureGuide from "./GestureGuide";
 import HistoryLog, { HistoryEntry } from "./HistoryLog";
@@ -22,9 +22,11 @@ export type ViewLayoutMode = "split" | "slides" | "camera";
 export default function Dashboard() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraImgRef = useRef<HTMLImageElement | null>(null);
+  const pipImgRef = useRef<HTMLImageElement | null>(null);
+  const [hasReceivedFirstFrame, setHasReceivedFirstFrame] = useState(false);
 
   const [connected, setConnected] = useState(false);
-  const [latestFrame, setLatestFrame] = useState<string | null>(null);
   const [currentGesture, setCurrentGesture] = useState<GestureEvent | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -38,7 +40,7 @@ export default function Dashboard() {
     mirrorCamera: true,
   });
 
-  // ── WebSocket Connection ──
+  // ── WebSocket Connection with Direct DOM Streaming ──
   const connectWebSocket = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
@@ -46,19 +48,28 @@ export default function Dashboard() {
 
     ws.onopen = () => {
       setConnected(true);
-      console.log("[WS] Connected to GestureSlide backend");
+      console.log("[WS] High-performance connection established");
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === "frame") {
-          setLatestFrame(data.image);
+          // Zero-cost DOM update (bypasses React reconciliation for 60fps smoothness)
+          if (cameraImgRef.current) {
+            cameraImgRef.current.src = data.image;
+          }
+          if (pipImgRef.current) {
+            pipImgRef.current.src = data.image;
+          }
+          if (!hasReceivedFirstFrame) {
+            setHasReceivedFirstFrame(true);
+          }
         } else if (data.type === "gesture") {
           const gestureData = data as GestureEvent;
           setCurrentGesture(gestureData);
 
-          // Add to history if it's an actionable gesture
+          // Add to history only if actionable
           if (gestureData.gesture !== "none") {
             setHistory((prev) => {
               const entry: HistoryEntry = {
@@ -70,7 +81,7 @@ export default function Dashboard() {
                 confidence: gestureData.confidence,
               };
               const updated = [entry, ...prev];
-              return updated.slice(0, 50); // Keep max 50
+              return updated.slice(0, 40);
             });
           }
         }
@@ -81,7 +92,7 @@ export default function Dashboard() {
 
     ws.onclose = () => {
       setConnected(false);
-      console.log("[WS] Disconnected. Reconnecting in 3s...");
+      setHasReceivedFirstFrame(false);
       reconnectTimerRef.current = setTimeout(connectWebSocket, 3000);
     };
 
@@ -90,7 +101,7 @@ export default function Dashboard() {
     };
 
     wsRef.current = ws;
-  }, []);
+  }, [hasReceivedFirstFrame]);
 
   // ── Initialize ──
   useEffect(() => {
@@ -137,7 +148,7 @@ export default function Dashboard() {
               GestureSlide
             </h1>
             <p className="text-[10px] text-slate-500 -mt-0.5">
-              Hands-Free AI Presentation Controller (100% Database-Free)
+              High-Speed AI Presentation Engine
             </p>
           </div>
         </div>
@@ -237,7 +248,6 @@ export default function Dashboard() {
               currentGesture={currentGesture}
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}
-              cameraFrame={latestFrame}
             />
           </div>
         )}
@@ -249,22 +259,24 @@ export default function Dashboard() {
               layoutMode === "camera" ? "flex-1" : "w-[380px] lg:w-[420px]"
             } flex flex-col gap-4 shrink-0 min-h-0 overflow-y-auto pr-0.5 custom-scrollbar`}
           >
-            {/* Camera Preview Box */}
+            {/* Camera Preview Box with Direct Ref */}
             <div className="relative h-56 rounded-2xl overflow-hidden border border-white/10 bg-[#0d0e16] shrink-0">
-              {latestFrame ? (
-                <img
-                  src={latestFrame}
-                  alt="Camera feed"
-                  className="absolute inset-0 w-full h-full object-cover opacity-90"
-                />
-              ) : (
+              <img
+                ref={cameraImgRef}
+                alt="Camera feed"
+                className={`absolute inset-0 w-full h-full object-cover ${
+                  hasReceivedFirstFrame ? "block opacity-90" : "hidden"
+                }`}
+              />
+
+              {!hasReceivedFirstFrame && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 p-4 text-center">
                   <div className="text-3xl mb-2">📷</div>
                   <p className="text-xs font-medium text-slate-400">
-                    Waiting for Python backend...
+                    Waiting for Python vision feed...
                   </p>
                   <p className="text-[11px] text-slate-600 mt-1 font-mono">
-                    python gesture_controller.py
+                    python run.py
                   </p>
                 </div>
               )}

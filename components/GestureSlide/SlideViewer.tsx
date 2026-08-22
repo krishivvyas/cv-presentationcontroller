@@ -121,8 +121,14 @@ export default function SlideViewer({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pdfDocRef = useRef<any>(null);
 
-  // ── Navigation callbacks ──
+  const lastTransitionTimeRef = useRef<number>(0);
+
+  // ── Navigation callbacks (with throttle to prevent double-skips) ──
   const nextSlide = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTransitionTimeRef.current < 450) return;
+    lastTransitionTimeRef.current = now;
+
     setCurrentIndex((prev) => {
       if (prev < slides.length - 1) {
         setDirection(1);
@@ -133,6 +139,10 @@ export default function SlideViewer({
   }, [slides.length]);
 
   const prevSlide = useCallback(() => {
+    const now = Date.now();
+    if (now - lastTransitionTimeRef.current < 450) return;
+    lastTransitionTimeRef.current = now;
+
     setCurrentIndex((prev) => {
       if (prev > 0) {
         setDirection(-1);

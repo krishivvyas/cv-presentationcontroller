@@ -63,7 +63,7 @@ def main():
     # 2. Wait a brief moment and open browser
     def open_browser():
         time.sleep(4)
-        dashboard_url = "https://localhost:3000/controller"
+        dashboard_url = "http://localhost:3000/controller"
         print(f"  [3/3] Opening browser at {dashboard_url}")
         try:
             webbrowser.open(dashboard_url)

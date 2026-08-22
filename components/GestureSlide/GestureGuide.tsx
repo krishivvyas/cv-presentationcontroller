@@ -2,6 +2,13 @@
 
 const GESTURES = [
   {
+    id: "thumbs_up",
+    emoji: "👍 / ✌️",
+    name: "Thumbs Up / Peace",
+    action: "Next Slide",
+    key: "→",
+  },
+  {
     id: "index_up",
     emoji: "☝️",
     name: "Index Up",
@@ -9,18 +16,18 @@ const GESTURES = [
     key: "←",
   },
   {
-    id: "thumbs_up",
-    emoji: "👍",
-    name: "Thumbs Up",
-    action: "Next Slide",
-    key: "→",
-  },
-  {
     id: "fist",
     emoji: "✊",
-    name: "Fist Hold",
-    action: "Start / Stop",
-    key: "F5 / Esc",
+    name: "Fist (Hold 0.4s)",
+    action: "Fullscreen",
+    key: "F5",
+  },
+  {
+    id: "pinch",
+    emoji: "🤏",
+    name: "Pinch Fingers",
+    action: "Blank Screen",
+    key: "B",
   },
   {
     id: "two_palms",
@@ -28,13 +35,6 @@ const GESTURES = [
     name: "Two Palms",
     action: "Pause / Resume",
     key: "—",
-  },
-  {
-    id: "pinch",
-    emoji: "🤏",
-    name: "Pinch",
-    action: "Blank Screen",
-    key: "B",
   },
 ];
 
@@ -63,7 +63,7 @@ export default function GestureGuide({
             >
               <div className="flex items-center gap-2">
                 <span
-                  className={`text-xl transition-transform duration-200 ${
+                  className={`text-lg transition-transform duration-200 ${
                     isActive ? "scale-110" : ""
                   }`}
                 >

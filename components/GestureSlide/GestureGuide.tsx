@@ -23,9 +23,9 @@ const GESTURES = [
     key: "F5 / Esc",
   },
   {
-    id: "palm",
-    emoji: "🖐️",
-    name: "Open Palm",
+    id: "two_palms",
+    emoji: "🙌",
+    name: "Two Palms",
     action: "Pause / Resume",
     key: "—",
   },

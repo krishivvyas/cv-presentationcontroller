@@ -38,7 +38,7 @@ class Gesture(Enum):
     NONE = "none"
     INDEX_UP = "index_up"
     FIST = "fist"
-    PALM = "palm"
+    TWO_PALMS = "two_palms"
     THUMBS_UP = "thumbs_up"
     PINCH = "pinch"
 
@@ -84,7 +84,7 @@ GESTURE_INFO = {
     Gesture.INDEX_UP: ("☝️", "Previous Slide"),
     Gesture.THUMBS_UP: ("👍", "Next Slide"),
     Gesture.FIST: ("✊", "Toggle Presentation"),
-    Gesture.PALM: ("🖐️", "Pause/Resume Recognition"),
+    Gesture.TWO_PALMS: ("🙌", "Pause/Resume Recognition"),
     Gesture.PINCH: ("🤏", "Toggle Blank Screen"),
     Gesture.NONE: ("⏳", "Waiting for gesture..."),
 }
@@ -124,16 +124,14 @@ class GestureDetector:
 
         return fingers
 
-    def detect(self, hand_landmarks, frame_width, frame_height):
+    def detect(self, hands, frame_width, frame_height):
         """
         Analyze hand landmarks and return detected gesture.
         Returns (Gesture, confidence).
         """
-        if not hand_landmarks:
+        if not hands:
             return Gesture.NONE, 0.0
 
-        hl = hand_landmarks
-        fingers = self._fingers_up(hl)
         now = time.time()
 
         # Check cooldown
@@ -141,14 +139,20 @@ class GestureDetector:
         if elapsed_ms < self.cooldown_ms:
             return Gesture.NONE, 0.0
 
-        num_up = sum(fingers)
+        # ── Two Palms (Both hands with 5 fingers up) ──
+        if len(hands) == 2:
+            f1 = self._fingers_up(hands[0])
+            f2 = self._fingers_up(hands[1])
+            if sum(f1) == 5 and sum(f2) == 5:
+                self.fist_start_time = 0
+                self.last_gesture_time = now
+                self.paused = not self.paused
+                return Gesture.TWO_PALMS, 0.95
 
-        # ── Open Palm (all 5 fingers up) ──
-        if num_up == 5:
-            self.fist_start_time = 0
-            self.last_gesture_time = now
-            self.paused = not self.paused
-            return Gesture.PALM, 0.95
+        # Proceed with the primary hand for single-hand gestures
+        hl = hands[0]
+        fingers = self._fingers_up(hl)
+        num_up = sum(fingers)
 
         # ── Fist (no fingers up) — needs hold for 0.5s ──
         if num_up == 0:
@@ -265,7 +269,7 @@ def draw_status_bar(img, gesture, detector, w, h, mode="webcam"):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, pres_color, 1, cv2.LINE_AA)
 
     # Bottom hints
-    cv2.putText(img, "Q: Quit | Gestures: IndexUp/ThumbsUp/Fist/Palm/Pinch",
+    cv2.putText(img, "Q: Quit | Gestures: IndexUp/ThumbsUp/Fist/TwoPalms/Pinch",
                 (15, h - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
                 (100, 100, 100), 1, cv2.LINE_AA)
 
@@ -412,24 +416,25 @@ def process_frame(frame, detector_mp, gesture_detector, keyboard_ctrl, ws_server
 
     # Detect gesture
     if hands and not gesture_detector.paused:
-        gesture, confidence = gesture_detector.detect(hands[0], w, h)
+        gesture, confidence = gesture_detector.detect(hands, w, h)
 
         # Execute keyboard action for actionable gestures
-        if gesture not in (Gesture.NONE, Gesture.PALM):
+        if gesture not in (Gesture.NONE, Gesture.TWO_PALMS):
             keyboard_ctrl.execute(gesture, gesture_detector.presentation_active)
 
     elif hands and gesture_detector.paused:
-        # Still check for palm gesture to unpause
-        hl = hands[0]
-        fingers = gesture_detector._fingers_up(hl)
-        if sum(fingers) == 5:
-            now = time.time()
-            elapsed_ms = (now - gesture_detector.last_gesture_time) * 1000
-            if elapsed_ms >= gesture_detector.cooldown_ms:
-                gesture_detector.paused = False
-                gesture_detector.last_gesture_time = now
-                gesture = Gesture.PALM
-                confidence = 0.95
+        # Still check for two palms gesture to unpause
+        if len(hands) == 2:
+            f1 = gesture_detector._fingers_up(hands[0])
+            f2 = gesture_detector._fingers_up(hands[1])
+            if sum(f1) == 5 and sum(f2) == 5:
+                now = time.time()
+                elapsed = (now - gesture_detector.last_gesture_time) * 1000
+                if elapsed > gesture_detector.cooldown_ms:
+                    gesture_detector.paused = False
+                    gesture_detector.last_gesture_time = now
+                    gesture = Gesture.TWO_PALMS
+                    confidence = 0.95
 
     # Draw HUD
     draw_status_bar(frame, gesture, gesture_detector, w, h, mode=mode)
@@ -492,7 +497,7 @@ def main():
     base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
     options = vision.HandLandmarkerOptions(
         base_options=base_options,
-        num_hands=1,
+        num_hands=2,
         running_mode=vision.RunningMode.VIDEO,
         min_hand_detection_confidence=0.5,
         min_hand_presence_confidence=0.5,

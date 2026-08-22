@@ -4,7 +4,7 @@ Hands-Free Presentation Controller powered by MediaPipe and Next.js. Control you
 
 ## Features
 
-- **5 Intuitive Gestures**: Index up, thumbs up, fist, open palm, and pinch.
+- **5 Intuitive Gestures**: Index up, thumbs up, fist, two palms, and pinch.
 - **Real-time Dashboard**: Beautiful Next.js UI with live camera preview, gesture indicator, and history log.
 - **Phone Camera Support**: Use your phone as a wireless camera over WiFi — no webcam needed.
 - **Customizable**: Adjust cooldown and toggle settings directly from the dashboard.
@@ -86,7 +86,7 @@ npm run dev
 | 👍 Thumbs Up | Next Slide | `→` |
 | ☝️ Index Finger Up | Previous Slide | `←` |
 | ✊ Fist (hold 0.5s) | Start/Stop Presentation | `F5` / `Esc` |
-| 🖐️ Open Palm | Pause/Resume Recognition | — |
+| 🙌 Two Palms | Pause/Resume Recognition | — |
 | 🤏 Pinch | Toggle Blank Screen | `B` |
 
 ## License

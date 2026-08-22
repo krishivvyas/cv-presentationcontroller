@@ -24,6 +24,14 @@ from collections import deque
 from enum import Enum
 from dataclasses import dataclass, asdict
 
+# Windows console UTF-8 output fix
+if sys.platform.startswith("win"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision

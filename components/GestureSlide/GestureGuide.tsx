@@ -2,18 +2,18 @@
 
 const GESTURES = [
   {
-    id: "swipe_right",
-    emoji: "👉",
-    name: "Swipe Right",
-    action: "Next Slide",
-    key: "→",
-  },
-  {
-    id: "swipe_left",
-    emoji: "👈",
-    name: "Swipe Left",
+    id: "index_up",
+    emoji: "☝️",
+    name: "Index Up",
     action: "Prev Slide",
     key: "←",
+  },
+  {
+    id: "thumbs_up",
+    emoji: "👍",
+    name: "Thumbs Up",
+    action: "Next Slide",
+    key: "→",
   },
   {
     id: "fist",
@@ -27,13 +27,6 @@ const GESTURES = [
     emoji: "🖐️",
     name: "Open Palm",
     action: "Pause / Resume",
-    key: "—",
-  },
-  {
-    id: "thumbs_up",
-    emoji: "👍",
-    name: "Thumbs Up",
-    action: "Laser Pointer",
     key: "—",
   },
   {

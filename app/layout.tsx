@@ -7,6 +7,13 @@ export const metadata: Metadata = {
     "Control your presentations with hand gestures. Swipe, fist, pinch — no clicker needed.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

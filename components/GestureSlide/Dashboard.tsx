@@ -13,7 +13,6 @@ interface GestureEvent {
   timestamp: number;
   confidence: number;
   paused: boolean;
-  laser_mode: boolean;
   presentation_active: boolean;
 }
 
@@ -29,7 +28,6 @@ export default function Dashboard() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState({
-    sensitivity: 0.12,
     cooldown: 800,
     showSkeleton: true,
     soundFeedback: false,
@@ -168,13 +166,6 @@ export default function Dashboard() {
               }`}
             >
               {currentGesture.paused ? "⏸ Paused" : "▶ Active"}
-            </div>
-          )}
-
-          {/* Laser indicator */}
-          {currentGesture?.laser_mode && (
-            <div className="px-3 py-1.5 rounded-full text-xs font-medium border border-red-500/30 bg-red-500/10 text-red-400 animate-pulse">
-              🔴 Laser ON
             </div>
           )}
 

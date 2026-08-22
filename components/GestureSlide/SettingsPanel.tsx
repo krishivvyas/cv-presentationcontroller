@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 
 interface Settings {
-  sensitivity: number;
   cooldown: number;
   showSkeleton: boolean;
   soundFeedback: boolean;
@@ -89,35 +88,7 @@ export default function SettingsPanel({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-          {/* Sensitivity */}
-          <div>
-            <label className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-slate-300">
-                Swipe Sensitivity
-              </span>
-              <span className="text-xs font-mono text-cyan-400">
-                {settings.sensitivity.toFixed(2)}
-              </span>
-            </label>
-            <input
-              type="range"
-              min="0.05"
-              max="0.3"
-              step="0.01"
-              value={settings.sensitivity}
-              onChange={(e) =>
-                onChange({
-                  ...settings,
-                  sensitivity: parseFloat(e.target.value),
-                })
-              }
-              className="w-full h-1.5 rounded-full appearance-none bg-white/10 accent-cyan-500 cursor-pointer"
-            />
-            <div className="flex justify-between text-[9px] text-slate-600 mt-1">
-              <span>More sensitive</span>
-              <span>Less sensitive</span>
-            </div>
-          </div>
+
 
           {/* Cooldown */}
           <div>
@@ -184,8 +155,8 @@ export default function SettingsPanel({
             </h4>
             <div className="space-y-2">
               {[
-                { gesture: "Swipe Right", key: "→ Arrow Right" },
-                { gesture: "Swipe Left", key: "← Arrow Left" },
+                { gesture: "Thumbs Up", key: "→ Arrow Right" },
+                { gesture: "Index Up", key: "← Arrow Left" },
                 { gesture: "Fist (start)", key: "F5" },
                 { gesture: "Fist (stop)", key: "Escape" },
                 { gesture: "Pinch", key: "B (blank screen)" },

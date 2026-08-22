@@ -36,8 +36,7 @@ from websockets.asyncio.server import serve
 
 class Gesture(Enum):
     NONE = "none"
-    SWIPE_RIGHT = "swipe_right"
-    SWIPE_LEFT = "swipe_left"
+    INDEX_UP = "index_up"
     FIST = "fist"
     PALM = "palm"
     THUMBS_UP = "thumbs_up"
@@ -54,7 +53,6 @@ class GestureEvent:
     timestamp: float
     confidence: float = 1.0
     paused: bool = False
-    laser_mode: bool = False
     presentation_active: bool = False
 
     def to_json(self):
@@ -83,11 +81,10 @@ HAND_CONNECTIONS = [
 ]
 
 GESTURE_INFO = {
-    Gesture.SWIPE_RIGHT: ("👉", "Next Slide"),
-    Gesture.SWIPE_LEFT: ("👈", "Previous Slide"),
+    Gesture.INDEX_UP: ("☝️", "Previous Slide"),
+    Gesture.THUMBS_UP: ("👍", "Next Slide"),
     Gesture.FIST: ("✊", "Toggle Presentation"),
     Gesture.PALM: ("🖐️", "Pause/Resume Recognition"),
-    Gesture.THUMBS_UP: ("👍", "Toggle Laser Pointer"),
     Gesture.PINCH: ("🤏", "Toggle Blank Screen"),
     Gesture.NONE: ("⏳", "Waiting for gesture..."),
 }
@@ -98,12 +95,9 @@ GESTURE_INFO = {
 class GestureDetector:
     """Detects hand gestures from MediaPipe landmarks."""
 
-    def __init__(self, swipe_threshold=0.12, cooldown_ms=800):
-        self.swipe_threshold = swipe_threshold
+    def __init__(self, cooldown_ms=800):
         self.cooldown_ms = cooldown_ms
 
-        # Swipe tracking
-        self.index_x_history = deque(maxlen=8)
         self.last_gesture_time = 0
 
         # Fist hold tracking
@@ -113,7 +107,6 @@ class GestureDetector:
         # State
         self.paused = False
         self.presentation_active = False
-        self.laser_mode = False
         self.prev_pinching = False
 
     def _fingers_up(self, hl):
@@ -137,7 +130,6 @@ class GestureDetector:
         Returns (Gesture, confidence).
         """
         if not hand_landmarks:
-            self.index_x_history.clear()
             return Gesture.NONE, 0.0
 
         hl = hand_landmarks
@@ -147,16 +139,12 @@ class GestureDetector:
         # Check cooldown
         elapsed_ms = (now - self.last_gesture_time) * 1000
         if elapsed_ms < self.cooldown_ms:
-            # Still in cooldown, but track swipe history
-            if fingers[1] == 1 and fingers[2] == 0:
-                self.index_x_history.append(hl[8].x)
             return Gesture.NONE, 0.0
 
         num_up = sum(fingers)
 
         # ── Open Palm (all 5 fingers up) ──
         if num_up == 5:
-            self.index_x_history.clear()
             self.fist_start_time = 0
             self.last_gesture_time = now
             self.paused = not self.paused
@@ -164,7 +152,6 @@ class GestureDetector:
 
         # ── Fist (no fingers up) — needs hold for 0.5s ──
         if num_up == 0:
-            self.index_x_history.clear()
             if self.fist_start_time == 0:
                 self.fist_start_time = now
             elif now - self.fist_start_time >= self.fist_hold_duration:
@@ -178,10 +165,13 @@ class GestureDetector:
 
         # ── Thumbs Up (only thumb extended) ──
         if fingers == [1, 0, 0, 0, 0]:
-            self.index_x_history.clear()
             self.last_gesture_time = now
-            self.laser_mode = not self.laser_mode
             return Gesture.THUMBS_UP, 0.85
+
+        # ── Index Up (only index finger extended) ──
+        if fingers == [0, 1, 0, 0, 0]:
+            self.last_gesture_time = now
+            return Gesture.INDEX_UP, 0.85
 
         # ── Pinch (thumb + index close together) ──
         thumb_tip = hl[4]
@@ -195,28 +185,8 @@ class GestureDetector:
         self.prev_pinching = is_pinching
 
         if pinch_event and fingers[2] == 0 and fingers[3] == 0 and fingers[4] == 0:
-            self.index_x_history.clear()
             self.last_gesture_time = now
             return Gesture.PINCH, 0.85
-
-        # ── Swipe Detection (index finger pointing) ──
-        if fingers[1] == 1 and fingers[2] == 0 and fingers[3] == 0:
-            self.index_x_history.append(hl[8].x)
-
-            if len(self.index_x_history) >= 5:
-                # Calculate velocity from oldest to newest
-                dx = self.index_x_history[-1] - self.index_x_history[0]
-
-                if dx > self.swipe_threshold:
-                    self.index_x_history.clear()
-                    self.last_gesture_time = now
-                    # Note: camera is mirrored, so positive dx = swipe left in real world
-                    return Gesture.SWIPE_LEFT, min(1.0, abs(dx) / 0.3)
-
-                elif dx < -self.swipe_threshold:
-                    self.index_x_history.clear()
-                    self.last_gesture_time = now
-                    return Gesture.SWIPE_RIGHT, min(1.0, abs(dx) / 0.3)
 
         return Gesture.NONE, 0.0
 
@@ -229,8 +199,8 @@ class KeyboardController:
     def __init__(self):
         self.keyboard = KeyboardCtrl()
         self.key_map = {
-            Gesture.SWIPE_RIGHT: Key.right,
-            Gesture.SWIPE_LEFT: Key.left,
+            Gesture.THUMBS_UP: Key.right,
+            Gesture.INDEX_UP: Key.left,
             Gesture.FIST: None,         # Handled specially (F5 / Esc toggle)
             Gesture.PINCH: 'b',         # Blank screen toggle
         }
@@ -268,21 +238,6 @@ def draw_hand_skeleton(img, hand_landmarks, w, h):
         cv2.circle(img, (px, py), 5, (0, 0, 0), 1)
 
 
-def draw_laser_pointer(img, index_tip, w, h):
-    """Draw a red laser dot at the index finger tip."""
-    cx, cy = int(index_tip.x * w), int(index_tip.y * h)
-
-    # Outer glow
-    for radius, alpha in [(20, 0.15), (12, 0.3), (6, 0.6)]:
-        overlay = img.copy()
-        cv2.circle(overlay, (cx, cy), radius, (0, 0, 255), -1)
-        cv2.addWeighted(overlay, alpha, img, 1 - alpha, 0, img)
-
-    # Bright core
-    cv2.circle(img, (cx, cy), 4, (0, 0, 255), -1)
-    cv2.circle(img, (cx, cy), 2, (200, 200, 255), -1)
-
-
 def draw_status_bar(img, gesture, detector, w, h, mode="webcam"):
     """Draw an informational HUD on the frame."""
     emoji, action = GESTURE_INFO.get(gesture, ("⏳", "Unknown"))
@@ -303,11 +258,6 @@ def draw_status_bar(img, gesture, detector, w, h, mode="webcam"):
     cv2.putText(img, f"Gesture: {action}", (15, 45),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1, cv2.LINE_AA)
 
-    # Laser mode indicator
-    if detector.laser_mode:
-        cv2.putText(img, "LASER ON", (w - 150, 22),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
-
     # Presentation indicator
     pres_text = "PRESENTING" if detector.presentation_active else "STANDBY"
     pres_color = (0, 255, 100) if detector.presentation_active else (120, 120, 120)
@@ -315,7 +265,7 @@ def draw_status_bar(img, gesture, detector, w, h, mode="webcam"):
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, pres_color, 1, cv2.LINE_AA)
 
     # Bottom hints
-    cv2.putText(img, "Q: Quit | Gestures: Swipe/Fist/Palm/ThumbsUp/Pinch",
+    cv2.putText(img, "Q: Quit | Gestures: IndexUp/ThumbsUp/Fist/Palm/Pinch",
                 (15, h - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.4,
                 (100, 100, 100), 1, cv2.LINE_AA)
 
@@ -465,12 +415,8 @@ def process_frame(frame, detector_mp, gesture_detector, keyboard_ctrl, ws_server
         gesture, confidence = gesture_detector.detect(hands[0], w, h)
 
         # Execute keyboard action for actionable gestures
-        if gesture not in (Gesture.NONE, Gesture.PALM, Gesture.THUMBS_UP):
+        if gesture not in (Gesture.NONE, Gesture.PALM):
             keyboard_ctrl.execute(gesture, gesture_detector.presentation_active)
-
-        # Draw laser pointer if enabled
-        if gesture_detector.laser_mode and hands:
-            draw_laser_pointer(frame, hands[0][8], w, h)
 
     elif hands and gesture_detector.paused:
         # Still check for palm gesture to unpause
@@ -502,7 +448,6 @@ def process_frame(frame, detector_mp, gesture_detector, keyboard_ctrl, ws_server
             timestamp=time.time(),
             confidence=confidence,
             paused=gesture_detector.paused,
-            laser_mode=gesture_detector.laser_mode,
             presentation_active=gesture_detector.presentation_active,
         )
         ws_server.broadcast(event)
@@ -556,7 +501,7 @@ def main():
     detector_mp = vision.HandLandmarker.create_from_options(options)
 
     # Initialize components
-    gesture_detector = GestureDetector(swipe_threshold=0.12, cooldown_ms=800)
+    gesture_detector = GestureDetector(cooldown_ms=800)
     keyboard_ctrl = KeyboardController()
     ws_server = GestureWebSocketServer(host="0.0.0.0", port=8765)
 
@@ -579,9 +524,9 @@ def main():
 
     print()
     print("[READY] GestureSlide is running!")
-    print(f"  • Dashboard: http://localhost:3000/controller")
+    print(f"  • Dashboard: https://localhost:3000/controller")
     if phone_mode:
-        print(f"  • Phone camera: http://{local_ip}:3000/camera")
+        print(f"  • Phone camera: https://{local_ip}:3000/camera")
         print(f"  • Waiting for phone to connect...")
     else:
         print(f"  • Open your presentation app (PowerPoint, Google Slides, etc.)")

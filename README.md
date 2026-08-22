@@ -4,10 +4,10 @@ Hands-Free Presentation Controller powered by MediaPipe and Next.js. Control you
 
 ## Features
 
-- **6 Intuitive Gestures**: Swipe left/right, fist, open palm, thumbs up, and pinch.
+- **5 Intuitive Gestures**: Index up, thumbs up, fist, open palm, and pinch.
 - **Real-time Dashboard**: Beautiful Next.js UI with live camera preview, gesture indicator, and history log.
 - **Phone Camera Support**: Use your phone as a wireless camera over WiFi — no webcam needed.
-- **Customizable**: Adjust sensitivity, cooldown, and toggle settings directly from the dashboard.
+- **Customizable**: Adjust cooldown and toggle settings directly from the dashboard.
 - **Cross-Platform**: Works with any presentation software that accepts standard keyboard shortcuts.
 - **Completely Free**: Every library, framework, and tool used is free and open-source.
 
@@ -57,7 +57,7 @@ python gesture_controller.py
 npm run dev
 ```
 
-Open **http://localhost:3000/controller** in your browser.
+Open **https://localhost:3000/controller** in your browser.
 
 ---
 
@@ -75,22 +75,18 @@ python gesture_controller.py --phone
 npm run dev
 ```
 
-1. Note the **IP address** shown in the terminal (e.g. `192.168.1.5`)
-2. On your phone browser, open: `http://<YOUR-PC-IP>:3000/camera`
-3. Enter the PC IP address and tap **Connect & Start Camera**
-4. Open **http://localhost:3000/controller** on your PC for the dashboard
-
-> 💡 Find your PC's IP by running `ipconfig` (Windows) or `ifconfig` (Mac/Linux) in terminal.
+1. Scan the **QR code** shown in the terminal with your phone.
+2. Enter the PC IP address and tap **Connect & Start Camera**
+3. Open **https://localhost:3000/controller** on your PC for the dashboard
 
 ## Gesture Mappings
 
 | Gesture | Action | Key Simulated |
 |---|---|---|
-| ☝️ Swipe Right | Next Slide | `→` |
-| ☝️ Swipe Left | Previous Slide | `←` |
+| 👍 Thumbs Up | Next Slide | `→` |
+| ☝️ Index Finger Up | Previous Slide | `←` |
 | ✊ Fist (hold 0.5s) | Start/Stop Presentation | `F5` / `Esc` |
 | 🖐️ Open Palm | Pause/Resume Recognition | — |
-| 👍 Thumbs Up | Toggle Laser Pointer | — |
 | 🤏 Pinch | Toggle Blank Screen | `B` |
 
 ## License

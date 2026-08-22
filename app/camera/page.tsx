@@ -160,7 +160,7 @@ export default function CameraPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090a0f] text-white flex flex-col">
+    <div className="min-h-[100dvh] bg-[#090a0f] text-white flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#0d0e16]/90 shrink-0">
         <div className="flex items-center gap-2">

@@ -223,21 +223,16 @@ class GestureDetector:
             raw_gesture = Gesture.THUMBS_UP
             raw_conf = 0.95
 
-        # ── 4. Pinch (Thumb + Index touching) ➔ Toggle Blank Screen ──
+        # ── 4. Pinch (Thumb Tip + Index Tip Touching) ➔ Toggle Blank Screen ──
         else:
             thumb_tip = hl[4]
             index_tip = hl[8]
-            pinch_dist = math.hypot(
-                (thumb_tip.x - index_tip.x) * frame_width,
-                (thumb_tip.y - index_tip.y) * frame_height
-            )
-            is_pinching = pinch_dist < 40
-            pinch_event = is_pinching and not self.prev_pinching
-            self.prev_pinching = is_pinching
+            pinch_dist_norm = math.hypot(thumb_tip.x - index_tip.x, thumb_tip.y - index_tip.y)
 
-            if pinch_event and not is_mid and not is_ring and not is_pinky:
+            # Touch threshold: < 0.085 in normalized coordinates (~45-55px)
+            if pinch_dist_norm < 0.085:
                 raw_gesture = Gesture.PINCH
-                raw_conf = 0.90
+                raw_conf = 0.95
 
         # Smooth across 3-frame buffer
         self.history.append(raw_gesture)
@@ -309,6 +304,13 @@ def draw_hand_skeleton(img, hand_landmarks, w, h, active_gesture=Gesture.NONE):
             cv2.circle(img, (px, py), 7, (255, 255, 255), 1, cv2.LINE_AA)
         else:
             cv2.circle(img, (px, py), 3, (255, 255, 255), -1, cv2.LINE_AA)
+
+    # Highlight pinch connection if close
+    if len(points) > 8:
+        p4, p8 = points[4], points[8]
+        if math.hypot(p4[0] - p8[0], p4[1] - p8[1]) < 45:
+            cv2.line(img, p4, p8, (255, 200, 0), 3, cv2.LINE_AA)
+            cv2.circle(img, ((p4[0]+p8[0])//2, (p4[1]+p8[1])//2), 8, (255, 200, 0), -1, cv2.LINE_AA)
 
 
 def draw_hud(img, gesture, detector, w, h):

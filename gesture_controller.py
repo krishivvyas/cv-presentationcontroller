@@ -4,6 +4,7 @@ GestureSlide — Next-Gen AI Presentation Controller
 Ultra-robust 3D distance gesture recognition engine with angle/rotation invariance.
 """
 
+import os
 import cv2
 import time
 import math
@@ -521,7 +522,25 @@ def main():
     print()
 
     print("[INIT] Loading MediaPipe 3D Landmark model...")
-    base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
+    possible_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'hand_landmarker.task'),
+        os.path.join(os.getcwd(), 'cv-presentationcontroller', 'hand_landmarker.task'),
+        os.path.join(os.getcwd(), 'hand_landmarker.task'),
+        'hand_landmarker.task'
+    ]
+    model_path = None
+    for p in possible_paths:
+        if os.path.exists(p):
+            model_path = p
+            break
+
+    if not model_path:
+        raise FileNotFoundError("Could not find 'hand_landmarker.task' model file. Please ensure it is present in cv-presentationcontroller/.")
+
+    with open(model_path, 'rb') as f:
+        model_buffer = f.read()
+
+    base_options = python.BaseOptions(model_asset_buffer=model_buffer)
     options = vision.HandLandmarkerOptions(
         base_options=base_options,
         num_hands=2,
@@ -560,50 +579,61 @@ def main():
     print("    ✊ Fist (Hold 0.4s) ➔ Fullscreen Presentation")
     print("    🤏 Pinch ➔ Blank Screen")
     print("    🙌 Two Palms ➔ Pause / Resume")
-    print("  • Press 'Q' to quit\n")
+    print("  • Press 'Q' or close camera window to quit\n")
 
     last_gesture = Gesture.NONE
     last_ws_frame_time = 0
     WS_FRAME_INTERVAL = 0.055  # ~18 FPS
+    win_name = "GestureSlide — Vision Feed"
 
     while True:
-        now = time.time()
-        should_send_ws = (now - last_ws_frame_time) >= WS_FRAME_INTERVAL
+        try:
+            now = time.time()
+            should_send_ws = (now - last_ws_frame_time) >= WS_FRAME_INTERVAL
 
-        if phone_mode:
-            frame = ws_server.get_phone_frame()
-            if frame is None:
-                time.sleep(0.01)
-                continue
+            if phone_mode:
+                frame = ws_server.get_phone_frame()
+                if frame is None:
+                    time.sleep(0.01)
+                    continue
 
-            frame = cv2.resize(frame, (640, 480))
-            last_gesture, display_frame = process_frame(
-                frame, detector_mp, gesture_detector, keyboard_ctrl,
-                ws_server, last_gesture, mode="phone", send_frame_ws=should_send_ws
-            )
-            if should_send_ws:
-                last_ws_frame_time = now
+                frame = cv2.resize(frame, (640, 480))
+                last_gesture, display_frame = process_frame(
+                    frame, detector_mp, gesture_detector, keyboard_ctrl,
+                    ws_server, last_gesture, mode="phone", send_frame_ws=should_send_ws
+                )
+                if should_send_ws:
+                    last_ws_frame_time = now
 
-            cv2.imshow("GestureSlide — Vision Feed", display_frame)
+                cv2.imshow(win_name, display_frame)
 
-        else:
-            success, frame = cap.read()
-            if not success:
-                time.sleep(0.01)
-                continue
+            else:
+                success, frame = cap.read()
+                if not success:
+                    time.sleep(0.01)
+                    continue
 
-            last_gesture, display_frame = process_frame(
-                frame, detector_mp, gesture_detector, keyboard_ctrl,
-                ws_server, last_gesture, mode="webcam", send_frame_ws=should_send_ws
-            )
-            if should_send_ws:
-                last_ws_frame_time = now
+                last_gesture, display_frame = process_frame(
+                    frame, detector_mp, gesture_detector, keyboard_ctrl,
+                    ws_server, last_gesture, mode="webcam", send_frame_ws=should_send_ws
+                )
+                if should_send_ws:
+                    last_ws_frame_time = now
 
-            cv2.imshow("GestureSlide — Vision Feed", display_frame)
+                cv2.imshow(win_name, display_frame)
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'):
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q') or key == 27:  # ESC or Q
+                break
+
+            # Handle user closing the window with 'X'
+            if cv2.getWindowProperty(win_name, cv2.WND_PROP_VISIBLE) < 1:
+                break
+        except KeyboardInterrupt:
             break
+        except Exception as e:
+            print(f"[WARN] Frame error: {e}")
+            time.sleep(0.01)
 
     if cap:
         cap.release()

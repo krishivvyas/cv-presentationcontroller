@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import GestureIndicator from "./GestureIndicator";
 import GestureGuide from "./GestureGuide";
 import HistoryLog, { HistoryEntry } from "./HistoryLog";
 import SettingsPanel from "./SettingsPanel";
+import SlideViewer from "./SlideViewer";
 
-interface GestureEvent {
+export interface GestureEvent {
   gesture: string;
   action: string;
   emoji: string;
@@ -16,17 +17,23 @@ interface GestureEvent {
   presentation_active: boolean;
 }
 
+export type ViewLayoutMode = "split" | "slides" | "camera";
+
 export default function Dashboard() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraImgRef = useRef<HTMLImageElement | null>(null);
+  const pipImgRef = useRef<HTMLImageElement | null>(null);
+  const hasReceivedFirstFrameRef = useRef(false);
+  const [hasReceivedFirstFrame, setHasReceivedFirstFrame] = useState(false);
 
   const [connected, setConnected] = useState(false);
-  const [latestFrame, setLatestFrame] = useState<string | null>(null);
-  const [currentGesture, setCurrentGesture] = useState<GestureEvent | null>(
-    null
-  );
+  const [currentGesture, setCurrentGesture] = useState<GestureEvent | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<ViewLayoutMode>("split");
+
   const [settings, setSettings] = useState({
     cooldown: 800,
     showSkeleton: true,
@@ -34,27 +41,38 @@ export default function Dashboard() {
     mirrorCamera: true,
   });
 
-  // ── WebSocket Connection ──
+  // ── WebSocket Connection with Direct DOM Streaming ──
   const connectWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
 
-    const ws = new WebSocket("ws://localhost:8765");
+    const host = typeof window !== "undefined" && window.location.hostname ? window.location.hostname : "localhost";
+    const ws = new WebSocket(`ws://${host}:8765`);
 
     ws.onopen = () => {
       setConnected(true);
-      console.log("[WS] Connected to GestureSlide backend");
+      console.log(`[WS] Connected to ws://${host}:8765`);
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         if (data.type === "frame") {
-          setLatestFrame(data.image);
+          if (cameraImgRef.current) {
+            cameraImgRef.current.src = data.image;
+          }
+          if (pipImgRef.current) {
+            pipImgRef.current.src = data.image;
+          }
+          if (!hasReceivedFirstFrameRef.current) {
+            hasReceivedFirstFrameRef.current = true;
+            setHasReceivedFirstFrame(true);
+          }
         } else if (data.type === "gesture") {
           const gestureData = data as GestureEvent;
           setCurrentGesture(gestureData);
 
-          // Add to history if it's an actionable gesture
           if (gestureData.gesture !== "none") {
             setHistory((prev) => {
               const entry: HistoryEntry = {
@@ -66,7 +84,7 @@ export default function Dashboard() {
                 confidence: gestureData.confidence,
               };
               const updated = [entry, ...prev];
-              return updated.slice(0, 50); // Keep max 50
+              return updated.slice(0, 40);
             });
           }
         }
@@ -77,11 +95,13 @@ export default function Dashboard() {
 
     ws.onclose = () => {
       setConnected(false);
-      console.log("[WS] Disconnected. Reconnecting in 3s...");
-      reconnectTimerRef.current = setTimeout(connectWebSocket, 3000);
+      hasReceivedFirstFrameRef.current = false;
+      setHasReceivedFirstFrame(false);
+      reconnectTimerRef.current = setTimeout(connectWebSocket, 2000);
     };
 
-    ws.onerror = () => {
+    ws.onerror = (err) => {
+      console.error("[WS] Connection error:", err);
       ws.close();
     };
 
@@ -116,10 +136,14 @@ export default function Dashboard() {
     [sendConfig]
   );
 
+  const toggleFullscreen = useCallback(() => {
+    setIsFullscreen((prev) => !prev);
+  }, []);
+
   return (
     <div className="relative w-screen h-screen bg-[#090a0f] overflow-hidden flex flex-col">
       {/* ── Header Bar ── */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-[#0d0e16]/80 backdrop-blur-xl z-50 shrink-0">
+      <header className="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-[#0d0e16]/80 backdrop-blur-xl z-30 shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-lg shadow-lg shadow-cyan-500/20">
             🎯
@@ -129,12 +153,46 @@ export default function Dashboard() {
               GestureSlide
             </h1>
             <p className="text-[10px] text-slate-500 -mt-0.5">
-              Hands-Free Presentation Controller
+              High-Speed AI Presentation Engine
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        {/* Layout Switcher Tabs */}
+        <div className="hidden md:flex items-center bg-white/[0.04] p-1 rounded-xl border border-white/10">
+          <button
+            onClick={() => setLayoutMode("split")}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+              layoutMode === "split"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            📑 Split Mode
+          </button>
+          <button
+            onClick={() => setLayoutMode("slides")}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+              layoutMode === "slides"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            📊 Slides Focus
+          </button>
+          <button
+            onClick={() => setLayoutMode("camera")}
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+              layoutMode === "camera"
+                ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 shadow-sm"
+                : "text-slate-400 hover:text-white"
+            }`}
+          >
+            📷 Camera Focus
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3">
           {/* Connection Status */}
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
@@ -153,7 +211,9 @@ export default function Dashboard() {
                 }`}
               />
             </span>
-            {connected ? "Backend Connected" : "Disconnected"}
+            <span className="hidden sm:inline">
+              {connected ? "AI Engine Connected" : "Disconnected"}
+            </span>
           </div>
 
           {/* Paused / Active indicator */}
@@ -173,71 +233,92 @@ export default function Dashboard() {
           <button
             onClick={() => setSettingsOpen(!settingsOpen)}
             className="w-9 h-9 rounded-xl border border-white/10 bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:border-cyan-500/40 hover:bg-cyan-500/10 transition-all duration-200"
+            title="Settings"
           >
             ⚙️
           </button>
         </div>
       </header>
 
-      {/* ── Main Content ── */}
-      <div className="flex-1 flex gap-4 p-4 min-h-0">
-        {/* Left: Camera Preview */}
-        <div className="flex-1 flex flex-col gap-4 min-w-0">
-          <div className="relative flex-1 rounded-2xl overflow-hidden border border-white/10 bg-[#0d0e16] min-h-0">
-            {/* Camera Feed */}
-            {latestFrame ? (
-              <img
-                src={latestFrame}
-                alt="Camera feed"
-                className={`absolute inset-0 w-full h-full object-cover opacity-90`}
-              />
-            ) : (
-              <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
-                <div className="text-4xl mb-3">📷</div>
-                <p className="text-sm">Waiting for Python backend...</p>
-                <p className="text-xs text-slate-600 mt-1">
-                  Ensure python gesture_controller.py is running
-                </p>
-              </div>
-            )}
+      {/* ── Main Content Area ── */}
+      <div className="flex-1 flex gap-4 p-4 min-h-0 overflow-hidden">
+        {/* Slide Viewer Section */}
+        {(layoutMode === "split" || layoutMode === "slides") && (
+          <div
+            className={`${
+              layoutMode === "slides" ? "flex-1" : "flex-[1.5]"
+            } flex flex-col min-w-0 min-h-0`}
+          >
+            <SlideViewer
+              currentGesture={currentGesture}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+            />
+          </div>
+        )}
 
-            {/* Camera overlay labels */}
-            <div className="absolute top-3 left-3 z-10 flex items-center gap-2">
-              <div className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-[10px] font-semibold text-cyan-400 border border-cyan-500/20">
-                LIVE PREVIEW
-              </div>
-              {currentGesture?.presentation_active && (
-                <div className="px-2.5 py-1 rounded-lg bg-emerald-500/20 backdrop-blur-sm text-[10px] font-semibold text-emerald-400 border border-emerald-500/20 animate-pulse">
-                  PRESENTING
+        {/* Camera and Telemetry Panels */}
+        {(layoutMode === "split" || layoutMode === "camera") && (
+          <div
+            className={`${
+              layoutMode === "camera" ? "flex-1" : "w-[380px] lg:w-[420px]"
+            } flex flex-col gap-4 shrink-0 min-h-0 overflow-y-auto pr-0.5 custom-scrollbar`}
+          >
+            {/* Camera Preview Box with Direct Ref */}
+            <div className="relative h-56 rounded-2xl overflow-hidden border border-white/10 bg-[#0d0e16] shrink-0">
+              <img
+                ref={cameraImgRef}
+                alt="Camera feed"
+                className={`absolute inset-0 w-full h-full object-cover ${
+                  hasReceivedFirstFrame ? "block opacity-90" : "hidden"
+                }`}
+              />
+
+              {!hasReceivedFirstFrame && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 p-4 text-center">
+                  <div className="text-3xl mb-2">📷</div>
+                  <p className="text-xs font-medium text-slate-400">
+                    Waiting for Python vision feed...
+                  </p>
+                  <p className="text-[11px] text-slate-600 mt-1 font-mono">
+                    python run.py
+                  </p>
                 </div>
               )}
-            </div>
 
-            {/* Gesture detection zone hint */}
-            <div className="absolute bottom-3 left-3 right-3 z-10">
-              <div className="px-3 py-2 rounded-xl bg-black/50 backdrop-blur-sm text-[11px] text-slate-400 border border-white/5">
-                💡 Keep your hand centered in frame • Point index finger to navigate slides
+              {/* Live Status Label */}
+              <div className="absolute top-2.5 left-2.5 z-10 flex items-center gap-1.5">
+                <div className="px-2 py-0.5 rounded bg-black/70 backdrop-blur-sm text-[9px] font-bold text-cyan-400 border border-cyan-500/30 tracking-wider">
+                  LIVE VISION
+                </div>
+                {connected && (
+                  <div className="px-2 py-0.5 rounded bg-emerald-500/20 backdrop-blur-sm text-[9px] font-semibold text-emerald-400 border border-emerald-500/30">
+                    SKELETON ON
+                  </div>
+                )}
+              </div>
+
+              {/* Hint */}
+              <div className="absolute bottom-2 left-2 right-2 z-10">
+                <div className="px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-sm text-[10px] text-slate-300 border border-white/5 text-center">
+                  👍 Next Slide • ☝️ Prev Slide • ✊ Fullscreen
+                </div>
               </div>
             </div>
+
+            {/* Current Gesture Indicator */}
+            <GestureIndicator gesture={currentGesture} />
+
+            {/* Gesture Guide Cheatsheet */}
+            <GestureGuide activeGesture={currentGesture?.gesture || "none"} />
+
+            {/* History Log */}
+            <HistoryLog entries={history} />
           </div>
-        </div>
-
-        {/* Right: Info Panels */}
-        <div className="w-[380px] flex flex-col gap-4 shrink-0 min-h-0">
-          {/* Current Gesture Indicator */}
-          <GestureIndicator gesture={currentGesture} />
-
-          {/* Gesture Guide */}
-          <GestureGuide
-            activeGesture={currentGesture?.gesture || "none"}
-          />
-
-          {/* History Log */}
-          <HistoryLog entries={history} />
-        </div>
+        )}
       </div>
 
-      {/* ── Settings Panel ── */}
+      {/* ── Settings Modal ── */}
       <SettingsPanel
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}

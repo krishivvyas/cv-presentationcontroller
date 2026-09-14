@@ -9,7 +9,7 @@ interface GestureEvent {
   timestamp: number;
   confidence: number;
   paused: boolean;
-  laser_mode: boolean;
+  laser_mode?: boolean;
   presentation_active: boolean;
 }
 

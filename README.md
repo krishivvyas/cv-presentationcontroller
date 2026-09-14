@@ -1,94 +1,126 @@
-# cv-presentationcontroller
+# GestureSlide — Hands-Free Presentation Controller
 
-Hands-Free Presentation Controller powered by MediaPipe and Next.js. Control your presentations (PowerPoint, Google Slides, Keynote, etc.) with intuitive hand gestures — **100% free and open-source**.
+GestureSlide is an open-source presentation controller that uses computer vision (Google MediaPipe and OpenCV) to let you control slide decks with hand gestures. It runs locally without external database services or cloud APIs.
 
-## Features
-
-- **5 Intuitive Gestures**: Index up, thumbs up, fist, two palms, and pinch.
-- **Real-time Dashboard**: Beautiful Next.js UI with live camera preview, gesture indicator, and history log.
-- **Phone Camera Support**: Use your phone as a wireless camera over WiFi — no webcam needed.
-- **Customizable**: Adjust cooldown and toggle settings directly from the dashboard.
-- **Cross-Platform**: Works with any presentation software that accepts standard keyboard shortcuts.
-- **Completely Free**: Every library, framework, and tool used is free and open-source.
-
-## Tech Stack (All Free & Open-Source)
-
-| Component | Technology | License |
-|---|---|---|
-| Hand Tracking | [MediaPipe](https://github.com/google-ai-edge/mediapipe) | Apache 2.0 |
-| Computer Vision | [OpenCV](https://opencv.org/) | Apache 2.0 |
-| Numerical Computing | [NumPy](https://numpy.org/) | BSD |
-| Keyboard Simulation | [pynput](https://github.com/moses-palmer/pynput) | LGPL-3.0 |
-| WebSocket Server | [websockets](https://github.com/python-websockets/websockets) | BSD |
-| Frontend Framework | [Next.js](https://nextjs.org/) | MIT |
-| UI Library | [React](https://react.dev/) | MIT |
-| Animations | [Framer Motion](https://www.framer.com/motion/) | MIT |
-| CSS Framework | [Tailwind CSS](https://tailwindcss.com/) | MIT |
-| Language | [TypeScript](https://www.typescriptlang.org/) | Apache 2.0 |
-| Runtime | [Python 3](https://www.python.org/) / [Node.js](https://nodejs.org/) | PSF / MIT |
-
-> 💰 **Zero cost.** No API keys, no subscriptions, no paid services. Everything runs locally on your machine.
-
-## Installation
-
-### 1. Python Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Node.js Dependencies
-
-```bash
-npm install
-```
-
-## How to Run
-
-### Option A — Using Webcam
-
-**Terminal 1:**
-```bash
-python gesture_controller.py
-```
-
-**Terminal 2:**
-```bash
-npm run dev
-```
-
-Open **https://localhost:3000/controller** in your browser.
+It includes a Next.js dashboard with an in-browser PDF/image slide viewer, real-time hand tracking preview, and optional smartphone camera support over local WiFi.
 
 ---
 
-### Option B — Using Phone Camera (WiFi)
+## Features
 
-Both your PC and phone must be on the **same WiFi network or hotspot**.
+- **Local & Offline**: Runs entirely on your local machine with zero database dependencies.
+- **Gesture Control**: Navigate slides, enter full-screen presentation mode, or blank the screen using hand gestures.
+- **In-Browser Slide Viewer**: Upload PDF files or image slide decks directly into the dashboard.
+- **Low Latency**: Uses WebSockets for local communication between the Python vision engine and Next.js frontend.
+- **Dual Camera Input**: Supports built-in/USB webcams and wireless phone cameras over local WiFi.
 
-**Terminal 1:**
+---
+
+## Gesture Mapping
+
+| Gesture | Action | Shortcut | Description |
+|---|---|---|---|
+| Thumbs Up / Peace Sign | Next Slide | Right Arrow | Extend thumb or make peace sign |
+| Index Finger Up | Previous Slide | Left Arrow | Extend index finger alone |
+| Closed Fist | Toggle Fullscreen | F5 / Esc | Hold closed fist for 0.4 seconds |
+| Pinch (Thumb + Index) | Blank Screen | B | Touch thumb tip and index tip |
+| Two Open Palms | Pause / Resume | — | Show both open palms |
+
+---
+
+## Prerequisites
+
+- Python 3.9 or higher
+- Node.js 18 or higher
+
+---
+
+## Installation
+
+1. Navigate to the project folder:
+   ```bash
+   cd cv-presentationcontroller
+   ```
+
+2. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. Install Node.js dependencies:
+   ```bash
+   npm install
+   ```
+
+---
+
+## Running the Application
+
+### Single Command (Recommended)
+
+Run the unified launcher from the project directory:
+
 ```bash
-python gesture_controller.py --phone
+python run.py
 ```
 
-**Terminal 2:**
+Or run `start.bat` on Windows.
+
+This command will:
+1. Start the Next.js development server on `http://localhost:3000`.
+2. Start the Python vision engine and WebSocket server.
+3. Automatically open your default browser to `http://localhost:3000/controller`.
+
+---
+
+### Using Phone Camera over WiFi
+
+To use a smartphone as a wireless camera:
+
 ```bash
-npm run dev
+python run.py --phone
 ```
 
-1. Scan the **QR code** shown in the terminal with your phone.
-2. Enter the PC IP address and tap **Connect & Start Camera**
-3. Open **https://localhost:3000/controller** on your PC for the dashboard
+1. Ensure your PC and phone are connected to the same WiFi network.
+2. Scan the terminal QR code or open `http://<PC-IP-ADDRESS>:3000/camera` on your phone.
+3. Tap **Connect & Start Camera**.
 
-## Gesture Mappings
+---
 
-| Gesture | Action | Key Simulated |
-|---|---|---|
-| 👍 Thumbs Up | Next Slide | `→` |
-| ☝️ Index Finger Up | Previous Slide | `←` |
-| ✊ Fist (hold 0.5s) | Start/Stop Presentation | `F5` / `Esc` |
-| 🙌 Two Palms | Pause/Resume Recognition | — |
-| 🤏 Pinch | Toggle Blank Screen | `B` |
+## Project Structure
+
+```
+CV Presenter/
+├── run.py                              # Root application launcher
+├── start.bat                           # Windows batch launcher
+└── cv-presentationcontroller/
+    ├── hand_landmarker.task            # MediaPipe 3D landmark model asset
+    ├── gesture_controller.py           # Python vision engine & WebSocket server
+    ├── requirements.txt                # Python dependencies
+    ├── package.json                    # Node.js dependencies
+    ├── run.py                          # Application launcher module
+    ├── app/
+    │   ├── controller/                 # Next.js controller page
+    │   └── camera/                     # Mobile camera stream page
+    └── components/GestureSlide/
+        ├── Dashboard.tsx               # Main layout & WebSocket subscriber
+        ├── SlideViewer.tsx             # PDF and image slide renderer
+        ├── GestureIndicator.tsx        # Active gesture display
+        └── GestureGuide.tsx            # On-screen gesture reference
+```
+
+---
+
+## Technology Stack
+
+- **Computer Vision**: OpenCV, MediaPipe Tasks
+- **System Input**: pynput
+- **Frontend**: Next.js 15, React 19, Tailwind CSS, Framer Motion
+- **Document Rendering**: pdfjs-dist
+- **Communication**: WebSockets
+
+---
 
 ## License
 
-This project is open-source. All dependencies are free and permissively licensed (MIT, Apache 2.0, BSD, LGPL-3.0).
+MIT License. Free and open-source.
